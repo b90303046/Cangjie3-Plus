@@ -1,29 +1,34 @@
 #%%
 import pandas as pd
 import re
-with open(r'jsonl/BIAU1.txt','r', encoding='utf-8') as r:
+
+cangjie_map = {
+    'Q': '手', 'W': '田', 'E': '水', 'R': '口', 'T': '廿', 'Y': '卜', 'U': '山', 'I': '戈', 'O': '人', 'P': '心', 
+    'A': '日', 'S': '尸', 'D': '木', 'F': '火', 'G': '土', 'H': '竹', 'J': '十', 'K': '大', 'L': '中', 
+    'C': '金', 'V': '女', 'B': '月', 'N': '弓', 'M': '一', 'X': '難'
+    }
+
+with open(r'source_txt/cj3.txt','r', encoding='utf-8-sig') as r:
     raw_text_list = r.readlines()
 
+clean_raw_list=[jj.strip().replace('\n','').split() for jj in raw_text_list]
 
-raw_list2 = [jj.replace('║','').strip().split('│') for jj in raw_text_list]
 
-clean_list = []
-for kk in raw_list2:
-    clean_element = [jj.strip().replace('  ',',') for jj in kk]
-    if re.search( r'\d+',clean_element[0]):
-        clean_list.append(clean_element)
+def code_to_radicals(code, m=cangjie_map):
+    """
+    將倉頡補完的字碼轉為拆字模式
+    """
+    return ''.join(m.get(c,'') for c in code)
 
-#%%
+text_df = (pd.DataFrame(data = clean_raw_list, columns=['code', '單字'])
+           .assign(code = lambda df: df['code'].str.upper())
+           .assign(拆字 = lambda df: df['code'].apply(code_to_radicals))
+           #.pipe(lambda df: df.drop_duplicates('中文字', keep='first'))
+            .pipe(lambda df: df.drop_duplicates('單字', keep='first'))[['單字','code','拆字']]
+            )
+            
+text_df.to_csv(r'csv/cangjie_drill.csv', index=False, encoding='utf-8-sig')
 
-text_df = (pd.DataFrame(data = clean_list, columns=['indexx','word','部首','數字','次數','占比']).loc[:,['indexx','word','次數','占比']]
-           .assign(indexx= lambda df: pd.to_numeric(df['indexx'], errors='coerce'))
-           .assign(次數= lambda df: pd.to_numeric(df['次數'], errors='coerce'))
-           .assign(占比= lambda  df: pd.to_numeric(df['占比'], errors='coerce'))
-           .sort_values('占比', ascending=True).iloc[0:4000,:]
-           .dropna(axis=0, how='all')        
-           )
-
-#%%
-text_df.iloc[0:3000,1:3].to_csv('word_list.csv', encoding='utf-8-sig')
-
-#.drop('indexx')
+print('檔案輸出完成...')
+# text='影響房價因素眾多利率只是其中之一'
+# 
